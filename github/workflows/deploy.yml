@@ -1,0 +1,69 @@
+name: Check and Deploy Website
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lay code tu repository
+        uses: actions/checkout@v4
+
+      - name: Kiem tra du 3 file
+        run: |
+          for file in index.html style.css script.js; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Thieu file $file"
+              exit 1
+            fi
+          done
+          echo "Da co du 3 file."
+
+      - name: Kiem tra the title
+        run: |
+          if ! grep -qiE '<title>[^<]+</title>' index.html; then
+            echo "::error::index.html thieu the title hoac title rong."
+            exit 1
+          fi
+          echo "The title hop le."
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Lay code tu repository
+        uses: actions/checkout@v4
+
+      - name: Cau hinh GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Chuan bi file website
+        run: |
+          mkdir _site
+          cp index.html style.css script.js _site/
+
+      - name: Tai len artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy len GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
